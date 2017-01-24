@@ -30,7 +30,7 @@ Vagrant.configure("2") do |config|
    config.vm.define "apache" do |apache|
        apache.vm.hostname = "apache"
        apache.vm.network "forwarded_port", guest: 80, host: 20080
-       apache.vm.network "private_network", ip: "192.168.33.15"
+       apache.vm.network "private_network", ip: "192.168.33.10"
 
        apache.vm.provision "shell", inline: <<-SHELL       
        sudo yum -y install httpd
@@ -39,6 +39,13 @@ Vagrant.configure("2") do |config|
        sudo cp /vagrant/mod_jk.so /etc/httpd/modules/
        
        sudo cd /etc/httpd/conf/
+       sudo echo "LoadModule jk_module modules/mod_jk.so" >> httpd.conf 
+       sudo echo "JkWorkersFile conf/workers.properties" >> httpd.conf
+       sudo echo "JkShmFile /tmp/shm" >> httpd.conf
+       sudo echo "JkLogFile logs/mod_jk.log" >> httpd.conf
+       sudo echo "JkLogLevel info" >> httpd.conf
+       sudo echo "JkMount /new* lb" >> httpd.conf
+
        sudo touch workers.properties
        sudo echo "worker.list=lb" >> workers.properties 
        sudo echo "worker.lb.type=lb" >> workers.properties
@@ -47,22 +54,21 @@ Vagrant.configure("2") do |config|
        sudo echo "worker.myworker.port=8009" >> workers.properties
        sudo echo "worker.myworker.type=ajp13" >> workers.properties
 
-       sudo echo "LoadModule jk_module modules/mod_jk.so" >> httpd.conf 
-       sudo echo "JkWorkersFile conf/workers.properties" >> httpd.conf
-       sudo echo "JkShmFile /tmp/shm" >> httpd.conf
-       sudo echo "JkLogFile logs/mod_jk.log" >> httpd.conf
-       sudo echo "JkLogLevel info" >> httpd.conf
-       sudo echo "JkMount /test*lb" >> httpd.conf
+       sudo systemctl restart httpd
+
+       sudo echo "worker.list=status, worker.status.type=status" >> workers.properties
+       sudo echo "JkMount /jk-status status" >> httpd.conf
 
        sudo systemctl restart httpd
+
        SHELL
    end
 
    
    config.vm.define "tomcat1" do |tomcat1|
        tomcat1.vm.hostname = "tomcat1"
-       tomcat1.vm.network "forwarded_port", guest: 80, host: 21080
-       tomcat1.vm.network "private_network", ip: "192.168.33.16"
+       tomcat1.vm.network "forwarded_port", guest: 8080, host: 21080
+       tomcat1.vm.network "private_network", ip: "192.168.33.11"
 
        tomcat1.vm.provision "shell", inline: <<-SHELL       
        sudo yum -y install java-1.8.0-openjdk
@@ -79,8 +85,8 @@ Vagrant.configure("2") do |config|
 
    config.vm.define "tomcat2" do |tomcat2|
        tomcat2.vm.hostname = "tomcat2"
-       tomcat2.vm.network "forwarded_port", guest: 80, host: 22080
-       tomcat2.vm.network "private_network", ip: "192.168.33.17"
+       tomcat2.vm.network "forwarded_port", guest: 8080, host: 22080
+       tomcat2.vm.network "private_network", ip: "192.168.33.12"
 
        tomcat2.vm.provision "shell", inline: <<-SHELL
        sudo yum -y install java-1.8.0-openjdk
